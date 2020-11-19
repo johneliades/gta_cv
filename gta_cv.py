@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import win32gui
 import time
+import send_input
 from PIL import ImageGrab
 
 # gets all open windows and adds them in winlist
@@ -47,3 +48,6 @@ while True:
 #	last_time = time.time()
 
 cv2.destroyAllWindows()
+
+#send_input.PressKey(send_input.W)
+#send_input.ReleaseKey(send_input.W)
