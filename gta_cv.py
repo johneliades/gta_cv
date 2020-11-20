@@ -1,9 +1,8 @@
 import numpy as np
 import cv2
-import win32gui
+import win32gui, win32ui, win32con
 import time
 import send_input
-from PIL import ImageGrab
 
 # gets all open windows and adds them in winlist
 winlist = []
@@ -25,7 +24,6 @@ x = 0
 y = 0
 w = 800
 h = 600
-bbox = (x+10,  y+30, w+x-10, h+y-10)
 win32gui.SetForegroundWindow(hwnd)
 win32gui.MoveWindow(hwnd, x, y, w, h, True)
 
@@ -71,12 +69,39 @@ def process_image(orig_img):
 
 	return orig_img
 
+def get_screenshot(hwnd):
+	region = win32gui.GetWindowRect(hwnd)
+	x = region[0]
+	y = region[1]
+	width = region[2] - x - 10
+	height = region[3] - y - 35
+
+	wDC = win32gui.GetWindowDC(hwnd)
+	dcObj=win32ui.CreateDCFromHandle(wDC)
+	cDC=dcObj.CreateCompatibleDC()
+	dataBitMap = win32ui.CreateBitmap()
+	dataBitMap.CreateCompatibleBitmap(dcObj, width, height)
+	cDC.SelectObject(dataBitMap)
+	cDC.BitBlt((0,0),(width, height) , dcObj, (5,30), win32con.SRCCOPY)
+
+	signedIntsArray = dataBitMap.GetBitmapBits(True)
+	img = np.fromstring(signedIntsArray, dtype='uint8')
+	img.shape = (height, width, 4)
+
+	# Free Resources
+	dcObj.DeleteDC()
+	cDC.DeleteDC()
+	win32gui.ReleaseDC(hwnd, wDC)
+	win32gui.DeleteObject(dataBitMap.GetHandle())
+
+	return img
+
 # captures and shows each frame
 last_time = time.time()
 while True:
-	orig_img = np.array(ImageGrab.grab(bbox=bbox))
+	orig_img = get_screenshot(hwnd)
 	orig_img = process_image(orig_img)
-	frame = cv2.cvtColor(orig_img, cv2.COLOR_BGR2RGB)
+	frame = cv2.cvtColor(orig_img, cv2.COLOR_BGRA2RGB)
 	cv2.imshow("frame", frame)
 	if cv2.waitKey(1) & 0Xff == ord('q'):
 		cv2.destroyAllWindows()
