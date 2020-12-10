@@ -1,8 +1,10 @@
 # lane_detection
 
-A simple lane detection algorithm written in python using openCV that decently 
-detect lanes in most weather conditions using Canny, GaussianBlur and HoughLines
-with dynamic threshold adjustment depending on weather.
+A simple lane detection algorithm for GTA V written in python using openCV that 
+decently detect lanes in most weather conditions using Canny, GaussianBlur and 
+HoughLines with dynamic threshold adjustment depending on weather. The amazing
+part being that it can run without almost any modification for any other game 
+with lanes or maybe in real life videos.
 
 <p align="center">
   <img src="https://github.com/johneliades/gta_cv/blob/main/lane_detection/preview.gif" alt="animated" />
