@@ -58,19 +58,20 @@ def ReleaseKey(hexKeyCode):
 
 def straight():
 	PressKey(W)
-	ReleaseKey(A)
-	ReleaseKey(D)
+
+def rstraight():
+	ReleaseKey(W)
 
 def left():
 	PressKey(A)
-	ReleaseKey(W)
-	ReleaseKey(D)
+
+def rleft():
 	ReleaseKey(A)
 
 def right():
 	PressKey(D)
-	ReleaseKey(A)
-	ReleaseKey(W)
+
+def rright():
 	ReleaseKey(D)
 
 def stop():

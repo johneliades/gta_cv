@@ -5,31 +5,69 @@ import time
 import os
 from send_input import *
 
+import win32api
+import time
+from threading import Thread
+
+class Recorder:
+	def __init__(self):
+		self.special_keys = [0x01, 0x02, 0x10, 0x20]
+
+		self.special = {0x01: 'leftClick',
+						0x02: 'rightClick',
+						0x10: 'shift',
+						0x20: 'space'}
+		self.times = []
+		self.pressed = {}
+
+	def record(self):
+		t1 = Thread(target=self.key_down_time, args=(0x57,))
+		t2 = Thread(target=self.key_down_time, args=(0x41,))
+		t3 = Thread(target=self.key_down_time, args=(0x53,))
+		t4 = Thread(target=self.key_down_time, args=(0x44,))
+
+		t1.daemon = True
+		t2.daemon = True
+		t3.daemon = True
+		t4.daemon = True
+
+		t1.start()
+		t2.start()
+		t3.start()
+		t4.start()
+
+	def key_down_time(self, key):
+		while True:
+			if win32api.GetAsyncKeyState(key):
+				self.pressed[chr(key)] = 1
+			else:
+				self.pressed[chr(key)] = 0
+			time.sleep(0.05)
+
+	def get_values(self):
+		return self.pressed
+
 x = 0
 y = 0
 w = 800
 h = 600
 file_name = "training_data.npy"
 
-keyList = ["\b"]
-for char in "ABCDEFGHIJKLMNOPQRSTUVWXYZ 123456789,.'APS$/\\":
-	keyList.append(char)
 def keys_to_output():
 	#[A, W, S, D]
 
-	keys = []
-	for key in keyList:
-		if win32api.GetAsyncKeyState(ord(key)):
-			keys.append(key)
+	keys = r.get_values()
 
 	output = [0, 0, 0]
 
-	if("A" in keys):
+	if(keys["A"]):
 		output[0] = 1
-	elif("W" in keys):
+	if(keys["W"]):
 		output[1] = 1
-	elif("D" in keys):
+	if(keys["D"]):
 		output[2] = 1
+
+	print(output)
 
 	return output
 
@@ -93,6 +131,8 @@ def main():
 		orig_img = cv2.resize(orig_img, (80, 60))
 
 		keys = keys_to_output()
+		#print(keys)
+
 		training_data.append([orig_img, keys])
 		if(len(training_data)%500 == 0):
 			print("save")
@@ -107,4 +147,6 @@ def main():
 #		print(round(1/(time.time() - last_time)))
 		last_time = time.time()
 
+r = Recorder()
+r.record()
 main()
