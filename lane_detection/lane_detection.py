@@ -32,15 +32,24 @@ def draw_lines(orig_img, proc_img):
 		group_lines_neg = []
 
 		ys = []
-		for line in lines:
-			x1,y1,x2,y2 = line[0]
+	
+		try:
+			for line in lines:
+				x1,y1,x2,y2 = line[0]
 
-			if(math.sqrt((x1-x2)**2 + (y1-y2)**2)<190):
-				continue
+				if(math.sqrt((x1-x2)**2 + (y1-y2)**2)<190):
+					continue
 
-			ys += [y1, y2]
+				ys += [y1, y2]
+		except:
+			threshold -= 5
+			return
 
-		min_y = min(ys)
+		try:
+			min_y = min(ys)
+		except:
+			min_y = 0
+
 		max_y = h
 
 		for line in lines:
@@ -138,16 +147,24 @@ def draw_lines(orig_img, proc_img):
 			x1, y1, x2, y2 = average_lane(group_lines_neg[index2])
 			cv2.line(orig_img, (x1, y1), (x2, y2), (0, 0, 255), 5)
 		except:
-			threshold -= 2
+			pass
+			#threshold -= 2
 
-		if(counter<4 and counter != -1):
+		#print(counter, len(lines))
+
+		if(counter<10 and counter != -1):
 			threshold -= 10
-		elif(counter>10):
+		elif(counter>20):
+			threshold += 10
+
+		if(len(lines)<60):
+			threshold -= 10
+		elif(len(lines)>170):
 			threshold += 10
 
 	except Exception as e:
 		exc_type, exc_obj, exc_tb = sys.exc_info()
-		#print(exc_type, exc_tb.tb_lineno)
+		print(exc_type, exc_tb.tb_lineno)
 
 def roi(proc_img):
 	vertices = [np.array([[0, h],
@@ -168,7 +185,7 @@ def lane_detection(orig_img):
 	proc_img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2GRAY)
 
 	# edge detection
-	proc_img = cv2.Canny(proc_img, threshold1 = threshold, threshold2 = threshold+100)
+	proc_img = cv2.Canny(proc_img, threshold1 = threshold, threshold2 = 2*threshold)
 
 	# range of interest
 	proc_img = roi(proc_img)
