@@ -26,9 +26,8 @@ def draw_lines(orig_img, proc_img):
 	global threshold
 	global test
 
-	lines = cv2.HoughLinesP(proc_img, 1, np.pi/180, 180, np.array([]), 15, 15)
+	lines = cv2.HoughLinesP(proc_img, 1, np.pi/180, 180, np.array([]), 10, 10)
 
-	counter = -1
 	try:
 		group_lines_pos = []
 		group_lines_neg = []
@@ -38,7 +37,8 @@ def draw_lines(orig_img, proc_img):
 		try:
 			for line in lines:
 				x1,y1,x2,y2 = line[0]
-
+				if(math.sqrt((x1-x2)**2 + (y1-y2)**2)<150):
+					continue
 				ys += [y1, y2]
 		except:
 			threshold -= 5
@@ -51,10 +51,16 @@ def draw_lines(orig_img, proc_img):
 
 		max_y = h
 
+		counter = 0
 		for line in lines:
 			x1,y1,x2,y2 = line[0]
 
 			counter += 1
+
+			if(math.sqrt((x1-x2)**2 + (y1-y2)**2)<150):
+				continue
+
+			counter -= 1
 
 			m = (y2-y1)/(x2-x1)
 			b = y1-m*x1
@@ -66,6 +72,8 @@ def draw_lines(orig_img, proc_img):
 
 			x2 = int((max_y - b)/m)
 
+			similarity = 0.15
+			
 			if(m>0):
 				if(len(group_lines_pos)==0):
 					group_lines_pos.append([(m, b, x1, min_y, x2, max_y)])
@@ -77,8 +85,8 @@ def draw_lines(orig_img, proc_img):
 						m_cur = cur[0]
 						b_cur = cur[1]
 
-						if(1.2 * abs(m_cur) > abs(m) > 0.8 * abs(m_cur)):
-							if(1.2 * abs(b_cur) > abs(b) > 0.8 * abs(b_cur)):
+						if((1 + similarity) * abs(m_cur) > abs(m) > (1 - similarity) * abs(m_cur)):
+							if((1 + similarity) * abs(b_cur) > abs(b) > (1 - similarity) * abs(b_cur)):
 								group.append((m, b, x1, min_y, x2, max_y))
 								found = True
 								break
@@ -96,15 +104,14 @@ def draw_lines(orig_img, proc_img):
 						m_cur = cur[0]
 						b_cur = cur[1]
 
-						if(1.2 * abs(m_cur) > abs(m) > 0.8 * abs(m_cur)):
-							if(1.2 * abs(b_cur) > abs(b) > 0.8 * abs(b_cur)):
+						if((1 + similarity) * abs(m_cur) > abs(m) > (1 - similarity) * abs(m_cur)):
+							if((1 + similarity) * abs(b_cur) > abs(b) > (1 - similarity) * abs(b_cur)):
 								group.append((m, b, x1, min_y, x2, max_y))
 								found = True
 								break
 				
 					if(not found):
 						group_lines_neg.append([(m, b, x1, min_y, x2, max_y)])
-
 
 		def average_lane(lane_data, sign):
 			global old_pos
@@ -148,7 +155,7 @@ def draw_lines(orig_img, proc_img):
 			index1 = [i for i, x in enumerate(counter_pos) if x == maximum1]
 			index1 = index1[0]
 			x1, y1, x2, y2 = average_lane(group_lines_pos[index1], 1)
-			cv2.line(orig_img, (x1, y1), (x2, y2), (255, 255, 0), 3)
+			cv2.line(orig_img, (x1, y1), (x2, y2), (255, 255, 0), 5)
 		except:
 			pass
 
@@ -161,23 +168,16 @@ def draw_lines(orig_img, proc_img):
 			index2 = [i for i, x in enumerate(counter_neg) if x == maximum2]
 			index2 = index2[0]
 			x1, y1, x2, y2 = average_lane(group_lines_neg[index2], -1)
-			cv2.line(orig_img, (x1, y1), (x2, y2), (0, 0, 255), 3)
+			cv2.line(orig_img, (x1, y1), (x2, y2), (0, 0, 255), 5)
 		except:
 			pass
 
-			#threshold -= 2
+		#print(counter)
 
-		#print(counter, len(lines))
-
-		if(counter<10 and counter != -1):
-			threshold -= 10
-		elif(counter>20):
-			threshold += 10
-
-		if(len(lines)<60):
-			threshold -= 10
-		elif(len(lines)>170):
-			threshold += 10
+		if(counter<4):
+			threshold -= 15
+		elif(counter>50):
+			threshold += 15
 
 	except Exception as e:
 		exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -186,8 +186,8 @@ def draw_lines(orig_img, proc_img):
 def roi(proc_img):
 	vertices = [np.array([[0, h],
 						[0, 1.2*h/2],
-						[3*w/8, h/3],
-						[5*w/8, h/3],
+						[3*w/8, h/2.5],
+						[5*w/8, h/2.5],
 						[w, 1.2*h/2],
 						[w, h],
 						], np.int32)]
@@ -198,14 +198,27 @@ def roi(proc_img):
 	masked = cv2.bitwise_and(proc_img, mask)
 
 	vertices = [np.array([[0, h],
-						[160, h],
-						[160, h-160],
-						[0, h-160],
+						[h/3.75, h],
+						[h/3.75, h-h/3.75],
+						[0, h-h/3.75],
 						], np.int32)]
 
 	mask = np.zeros_like(proc_img)
 	cv2.fillPoly(mask, vertices, 255)
 	mask = cv2.bitwise_not(mask)
+
+	masked = cv2.bitwise_and(masked, mask)
+
+	vertices = [np.array([[3.3*w/8, h/2],
+						[3.3*w/8, h],
+						[4.7*w/8, h],
+						[4.7*w/8, h/2],
+						], np.int32)]
+
+	mask = np.zeros_like(proc_img)
+	cv2.fillPoly(mask, vertices, 255)
+	mask = cv2.bitwise_not(mask)
+
 	masked = cv2.bitwise_and(masked, mask)
 
 	return masked
@@ -232,4 +245,5 @@ def lane_detection(orig_img):
 		return orig_img
 	else:
 		draw_lines(proc_img, proc_img)
-		return proc_img
+	
+	return proc_img
