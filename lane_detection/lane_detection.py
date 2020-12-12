@@ -20,11 +20,13 @@ def init_lane_detection(width=800, height=600, show_original=True):
 
 	show_orig = show_original
 
+old_pos = []
+old_neg = []
 def draw_lines(orig_img, proc_img):
 	global threshold
 	global test
 
-	lines = cv2.HoughLinesP(proc_img, 1, np.pi/180, 180, np.array([]), 20, 10)
+	lines = cv2.HoughLinesP(proc_img, 1, np.pi/180, 180, np.array([]), 15, 15)
 
 	counter = -1
 	try:
@@ -36,9 +38,6 @@ def draw_lines(orig_img, proc_img):
 		try:
 			for line in lines:
 				x1,y1,x2,y2 = line[0]
-
-				if(math.sqrt((x1-x2)**2 + (y1-y2)**2)<190):
-					continue
 
 				ys += [y1, y2]
 		except:
@@ -54,9 +53,6 @@ def draw_lines(orig_img, proc_img):
 
 		for line in lines:
 			x1,y1,x2,y2 = line[0]
-		
-			if(math.sqrt((x1-x2)**2 + (y1-y2)**2)<190):
-				continue
 
 			counter += 1
 
@@ -109,33 +105,54 @@ def draw_lines(orig_img, proc_img):
 					if(not found):
 						group_lines_neg.append([(m, b, x1, min_y, x2, max_y)])
 
-		counter_pos = []
-		for group in group_lines_pos:
-			counter_pos.append(len(group))
 
-		def average_lane(lane_data):
+		def average_lane(lane_data, sign):
+			global old_pos
+			global old_neg
+
+			cache_size = 5
+
+			if(sign>0):
+				old_pos.insert(0, lane_data)
+				if(len(old_pos)>cache_size):
+					old_pos.pop()
+				current = old_pos
+			else:
+				old_neg.insert(0, lane_data)
+				if(len(old_neg)>cache_size):
+					old_neg.pop()
+				current = old_neg
+
 			x1s = []
 			y1s = []
 			x2s = []
 			y2s = []
-			for data in lane_data:
-				m, b, x1, y1, x2, y2 = data
 
-				x1s.append(x1)
-				y1s.append(y1)
-				x2s.append(x2)
-				y2s.append(y2)
+			for lane_data in current:
+				for data in lane_data:
+					m, b, x1, y1, x2, y2 = data
+
+					x1s.append(x1)
+					y1s.append(y1)
+					x2s.append(x2)
+					y2s.append(y2)
 
 			return (int(st.mean(x1s)), int(st.mean(y1s)), int(st.mean(x2s)), int(st.mean(y2s)))
 
 		try:
+			counter_pos = []
+			for group in group_lines_pos:
+				counter_pos.append(len(group))
+
 			maximum1 = max(counter_pos) 
 			index1 = [i for i, x in enumerate(counter_pos) if x == maximum1]
 			index1 = index1[0]
-			
-			x1, y1, x2, y2 = average_lane(group_lines_pos[index1])
-			cv2.line(orig_img, (x1, y1), (x2, y2), (255, 255, 0), 5)
+			x1, y1, x2, y2 = average_lane(group_lines_pos[index1], 1)
+			cv2.line(orig_img, (x1, y1), (x2, y2), (255, 255, 0), 3)
+		except:
+			pass
 
+		try:
 			counter_neg = []
 			for group in group_lines_neg:
 				counter_neg.append(len(group))
@@ -143,11 +160,11 @@ def draw_lines(orig_img, proc_img):
 			maximum2 = max(counter_neg)
 			index2 = [i for i, x in enumerate(counter_neg) if x == maximum2]
 			index2 = index2[0]
-
-			x1, y1, x2, y2 = average_lane(group_lines_neg[index2])
-			cv2.line(orig_img, (x1, y1), (x2, y2), (0, 0, 255), 5)
+			x1, y1, x2, y2 = average_lane(group_lines_neg[index2], -1)
+			cv2.line(orig_img, (x1, y1), (x2, y2), (0, 0, 255), 3)
 		except:
 			pass
+
 			#threshold -= 2
 
 		#print(counter, len(lines))
@@ -177,7 +194,20 @@ def roi(proc_img):
 
 	mask = np.zeros_like(proc_img)
 	cv2.fillPoly(mask, vertices, 255)
+
 	masked = cv2.bitwise_and(proc_img, mask)
+
+	vertices = [np.array([[0, h],
+						[160, h],
+						[160, h-160],
+						[0, h-160],
+						], np.int32)]
+
+	mask = np.zeros_like(proc_img)
+	cv2.fillPoly(mask, vertices, 255)
+	mask = cv2.bitwise_not(mask)
+	masked = cv2.bitwise_and(masked, mask)
+
 	return masked
 
 def lane_detection(orig_img):
@@ -190,8 +220,12 @@ def lane_detection(orig_img):
 	# range of interest
 	proc_img = roi(proc_img)
 
+	#dilated_image = cv2.dilate(proc_img, np.ones((5,5), np.uint8))
+	#proc_img = cv2.absdiff(dilated_image, proc_img)
+
 	# apply blur to fix aliasing
 	proc_img = cv2.GaussianBlur(proc_img, (5,5), 0)
+	proc_img = cv2.normalize(proc_img,None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
 
 	if(show_orig):
 		draw_lines(orig_img, proc_img)
