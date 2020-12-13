@@ -56,22 +56,25 @@ def ReleaseKey(hexKeyCode):
 	x = Input( ctypes.c_ulong(1), ii_ )
 	ctypes.windll.user32.SendInput(1, ctypes.pointer(x), ctypes.sizeof(x))
 
+t_time = 0.09
+
 def straight():
 	PressKey(W)
-
-def rstraight():
-	ReleaseKey(W)
+	ReleaseKey(A)
+	ReleaseKey(D)
 
 def left():
+	PressKey(W)
 	PressKey(A)
-
-def rleft():
+	ReleaseKey(D)
+	time.sleep(t_time)
 	ReleaseKey(A)
 
 def right():
+	PressKey(W)
 	PressKey(D)
-
-def rright():
+	ReleaseKey(A)
+	time.sleep(t_time)
 	ReleaseKey(D)
 
 def stop():

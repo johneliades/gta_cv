@@ -3,8 +3,8 @@
 import numpy as np
 from alexnet import alexnet
 
-WIDTH = 80
-HEIGHT = 60
+WIDTH = 160
+HEIGHT = 120
 LR = 1e-3
 EPOCHS = 8
 MODEL_NAME = 'pygta5-car-{}-{}-{}-epochs.model'.format(LR, 'alexnetv2',EPOCHS)
@@ -13,10 +13,10 @@ model = alexnet(WIDTH, HEIGHT, LR)
 
 #Setup the training data:
 
-train_data = np.load('training_data_v2.npy', allow_pickle = True)
+train_data = np.load('data/training_data.npy', allow_pickle = True)
 
-train = train_data[:-500]
-test = train_data[-500:]
+train = train_data[:int(len(train_data)*0.7)]
+test = train_data[int(len(train_data)*0.7):]
 
 X = np.array([i[0] for i in train]).reshape(-1,WIDTH,HEIGHT,1)
 Y = [i[1] for i in train]

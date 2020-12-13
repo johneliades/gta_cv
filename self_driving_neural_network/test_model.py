@@ -8,8 +8,8 @@ import win32gui, win32ui, win32con, win32api
 import send_input
 from alexnet import alexnet
 
-WIDTH = 80
-HEIGHT = 60
+WIDTH = 160
+HEIGHT = 120
 LR = 1e-3
 EPOCHS = 8
 MODEL_NAME = 'pygta5-car-{}-{}-{}-epochs.model'.format(LR, 'alexnetv2',EPOCHS)
@@ -92,21 +92,21 @@ def main():
 			#print('loop took {} seconds'.format(time.time()-last_time))
 			last_time = time.time()
 			screen = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
-			screen = cv2.resize(screen, (80,60))
-			cv2.imshow('',screen)
-			moves = list(np.around(model.predict([screen.reshape(80,60,1)])[0]))
+			screen = cv2.resize(screen, (WIDTH,HEIGHT))
+			#cv2.imshow('',screen)
+			prediction = model.predict([screen.reshape(WIDTH,HEIGHT,1)])[0]
 
-			if moves[0] == 1:
+			forward_thresh = 0.70
+			turn_thresh = 0.75
+
+			if(prediction[1] > forward_thresh):
+				send_input.straight()
+			elif(prediction[0] > turn_thresh):
 				send_input.left()
-			else:
-				send_input.rleft()
-
-
-			if moves[2] == 1:
+			elif(prediction[2] > turn_thresh):
 				send_input.right()
 			else:
-				send_input.rright()
-
+				send_input.straight()
 
 		keys = keys_to_output()
 		# p pauses game and can get annoying.

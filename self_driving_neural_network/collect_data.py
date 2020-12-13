@@ -1,10 +1,12 @@
 import numpy as np
+import pandas as pd
 import cv2
 import win32gui, win32ui, win32con, win32api
 import time
 import os
 from send_input import *
-
+from collections import Counter
+from random import shuffle
 import win32api
 import time
 from threading import Thread
@@ -51,7 +53,7 @@ x = 0
 y = 0
 w = 800
 h = 600
-file_name = "training_data.npy"
+file_name = "data/training_data.npy"
 
 def keys_to_output():
 	#[A, W, S, D]
@@ -62,12 +64,10 @@ def keys_to_output():
 
 	if(keys["A"]):
 		output[0] = 1
-	if(keys["W"]):
-		output[1] = 1
-	if(keys["D"]):
+	elif(keys["D"]):
 		output[2] = 1
-
-	print(output)
+	elif(keys["W"]):
+		output[1] = 1
 
 	return output
 
@@ -128,7 +128,7 @@ def main():
 	while True:
 		orig_img = get_screenshot(hwnd)
 		orig_img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2GRAY)
-		orig_img = cv2.resize(orig_img, (80, 60))
+		orig_img = cv2.resize(orig_img, (160, 120))
 
 		keys = keys_to_output()
 		#print(keys)
@@ -146,6 +146,38 @@ def main():
 
 #		print(round(1/(time.time() - last_time)))
 		last_time = time.time()
+
+	train_data = np.load(file_name, allow_pickle = True)
+
+	df = pd.DataFrame(train_data)
+	print(df.head())
+	print(Counter(df[1].apply(str)))
+
+	lefts = []
+	rights = []
+	forwards = []
+
+	shuffle(train_data)
+
+	for data in train_data:
+		img = data[0]
+		choice = data[1]
+
+		if choice == [1,0,0]:
+			lefts.append([img,choice])
+		elif choice == [0,1,0]:
+			forwards.append([img,choice])
+		elif choice == [0,0,1]:
+			rights.append([img,choice])
+
+	forwards = forwards[:len(lefts)][:len(rights)]
+	lefts = lefts[:len(forwards)]
+	rights = rights[:len(forwards)]
+
+	final_data = forwards + lefts + rights
+	shuffle(final_data)
+
+	np.save(file_name, final_data)
 
 r = Recorder()
 r.record()
