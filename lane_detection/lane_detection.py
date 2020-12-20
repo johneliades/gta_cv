@@ -183,6 +183,24 @@ def draw_lines(orig_img, proc_img):
 		exc_type, exc_obj, exc_tb = sys.exc_info()
 		print(exc_type, exc_tb.tb_lineno)
 
+def draw_curves(orig_img, proc_img):
+	points = np.column_stack(np.where(proc_img > 0))
+
+	x = []
+	y = []
+	for point in points:
+		y.append(point[0])
+		x.append(point[1])
+
+	if(len(x)!=0):
+		z = np.polyfit(x, y, 5)
+
+		draw_x = np.linspace(min(x), max(x), 1000)
+		draw_y = np.polyval(z, draw_x) # evaluate the polynomial
+	
+		draw_points = (np.asarray([draw_x, draw_y]).T).astype(np.int32)   # needs to be int32 and transposed
+		cv2.polylines(orig_img, [draw_points], False, (255, 255, 0), thickness=7)  # args: image, points, closed, color
+
 def roi(proc_img):
 	vertices = [np.array([[0, h],
 						[0, 1.2*h/2],
@@ -242,8 +260,9 @@ def lane_detection(orig_img):
 
 	if(show_orig):
 		draw_lines(orig_img, proc_img)
+		#draw_curves(orig_img, proc_img)
 		return orig_img
 	else:
 		draw_lines(proc_img, proc_img)
-	
-	return proc_img
+		#draw_curves(orig_img, proc_img)
+		return proc_img
