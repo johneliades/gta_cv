@@ -53,7 +53,10 @@ def main():
 	hwnd = gta[0]
 
 	# sets the window to foreground and sets its dimensions (game must run in windowed mode first)
-	win32gui.SetForegroundWindow(hwnd)
+	try:
+		win32gui.SetForegroundWindow(hwnd)
+	except:
+		pass
 	win32gui.MoveWindow(hwnd, x, y, w, h, True)
 
 	last_time = time.time()
