@@ -130,13 +130,25 @@ with detection_graph.as_default():
 			  feed_dict={image_tensor: image_np_expanded})
 			# Visualization of the results of a detection.
 			vis_util.visualize_boxes_and_labels_on_image_array(
-			  image_np,
-			  np.squeeze(boxes),
-			  np.squeeze(classes).astype(np.int32),
-			  np.squeeze(scores),
-			  category_index,
-			  use_normalized_coordinates=True,
-			  line_thickness=5)
+				image_np,
+				np.squeeze(boxes),
+				np.squeeze(classes).astype(np.int32),
+				np.squeeze(scores),
+				category_index,
+				use_normalized_coordinates=True,
+				line_thickness=5)
+
+			boxes = boxes[0]
+			classes = classes[0]
+
+			for i,b in enumerate(boxes):
+				if classes[i] == 3 or classes[i] == 6 or classes[i] == 8:
+					if scores[0][i] >= 0.5:
+						mid_x = (boxes[i][1] + boxes[i][3])/2
+						mid_y = (boxes[i][0] + boxes[i][2])/2
+						apx_distance = round(((1 - (boxes[i][3] - boxes[i][1]))**6), 2)
+						cv2.putText(image_np, '{}'.format(apx_distance), (int(mid_x*w)-15, 
+							int(mid_y*h)-15), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
 
 			cv2.imshow('window',image_np)
 			if cv2.waitKey(1) & 0Xff == ord('q'):
