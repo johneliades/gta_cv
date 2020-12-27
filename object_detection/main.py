@@ -7,9 +7,10 @@ import os
 import six.moves.urllib as urllib
 import tarfile
 import tensorflow as tf
-import win32gui, win32ui, win32con
+import win32gui, win32ui, win32con, win32api
 import time
 import cv2
+import keys
 
 # ## Object detection imports
 # Here are the imports from the object detection module.
@@ -53,6 +54,20 @@ x = 0
 y = 0
 w = 800
 h = 600
+
+keyList = ["\b"]
+for char in "ABCDEFGHIJKLMNOPQRSTUVWXYZ 123456789,.'APS$/\\":
+	keyList.append(char)
+
+def keys_to_output():
+	#[A, W, S, D]
+
+	pressed = []
+	for key in keyList:
+		if win32api.GetAsyncKeyState(ord(key)):
+			pressed.append(key)
+
+	return pressed
 
 def get_screenshot(hwnd):
 	region = win32gui.GetWindowRect(hwnd)
@@ -104,6 +119,10 @@ except:
 win32gui.MoveWindow(hwnd, x, y, w, h, True)
 
 last_time = time.time()
+keys = keys.Keys({})
+
+#gpu_options = tf.compat.v1.GPUOptions(per_process_gpu_memory_fraction=0.80)
+paused = False
 
 with detection_graph.as_default():
 	with tf.compat.v1.Session(graph=detection_graph) as sess:
@@ -140,15 +159,57 @@ with detection_graph.as_default():
 
 			boxes = boxes[0]
 			classes = classes[0]
+     
+			vehicle_dict = {}
+			
+			if 'X' in keys_to_output():
+				if paused:
+					paused = False
+				else:
+					paused = True
+
+			if(paused):
+				cv2.putText(image_np, 'Aimbot Paused!', (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 3)
+			else:
+				cv2.putText(image_np, 'Aimbot Working!', (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,255,0), 3)
 
 			for i,b in enumerate(boxes):
-				if classes[i] == 3 or classes[i] == 6 or classes[i] == 8:
+				#if classes[i] == 3 or classes[i] == 6 or classes[i] == 8:
+				if classes[i] == 1:
 					if scores[0][i] >= 0.5:
 						mid_x = (boxes[i][1] + boxes[i][3])/2
 						mid_y = (boxes[i][0] + boxes[i][2])/2
 						apx_distance = round(((1 - (boxes[i][3] - boxes[i][1]))**6), 2)
 						cv2.putText(image_np, '{}'.format(apx_distance), (int(mid_x*w)-15, 
 							int(mid_y*h)-15), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
+
+						if(apx_distance>0.2):
+							vehicle_dict[apx_distance] = [mid_x, mid_y]
+
+			if len(vehicle_dict) > 0:
+				closest = sorted(vehicle_dict.keys())[0]
+				vehicle_choice = vehicle_dict[closest]
+
+				x_move = 0.5-vehicle_choice[0]
+				y_move = 0.5-vehicle_choice[1]
+
+				if not paused:
+					keys.keys_worker.SendInput(keys.keys_worker.Mouse(0x0001, -1*int(x_move*w), -1*int(y_move*h)))
+					keys.directMouse(buttons=keys.mouse_lb_press)
+			elif(not paused):
+				keys.directMouse(buttons=keys.mouse_lb_release)		
+
+		#		hm_x = x_move/0.5
+		#		hm_y = y_move/0.5
+		#		keys.keys_worker.SendInput(keys.keys_worker.Mouse(0x0001, -1*int(hm_x*w), -1*int(hm_y*h)))
+			
+		#		if closest < 0.1:
+		#			keys.directKey("w", keys.key_release)
+		#			keys.directKey("f")
+		#			time.sleep(0.05)          
+		#			keys.directKey("f", keys.key_release)
+		#		else:
+		#			keys.directKey("w")
 
 			cv2.imshow('window',image_np)
 			if cv2.waitKey(1) & 0Xff == ord('q'):
