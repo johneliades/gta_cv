@@ -3,7 +3,7 @@
 A list of projects based on openCV used on GTA V, but easily applied with minor 
 modification to any similarly realistic enough game.
 
-Solarized dark             |  Solarized Ocean
+Lane Detection            |  Object Detection
 :-------------------------:|:-------------------------:
 ![](https://github.com/johneliades/gta_cv/blob/main/lane_detection/preview.gif)  |  ![](https://github.com/johneliades/gta_cv/blob/main/object_detection/preview.gif)
 
