@@ -32,23 +32,25 @@ def keys_to_output():
 	return pressed
 
 def get_screenshot(hwnd):
+	global windowX, windowY, windowWidth, windowHeight
+
 	region = win32gui.GetWindowRect(hwnd)
-	windowX = region[0]
-	windowY = region[1]
-	width = region[2] - windowX - 10
-	height = region[3] - windowY - 35
+	windowX = region[0] + 10
+	windowY = region[1] + 35
+	windowWidth = region[2] - windowX - 10
+	windowHeight = region[3] - windowY - 35
 
 	wDC = win32gui.GetWindowDC(hwnd)
 	dcObj=win32ui.CreateDCFromHandle(wDC)
 	cDC=dcObj.CreateCompatibleDC()
 	dataBitMap = win32ui.CreateBitmap()
-	dataBitMap.CreateCompatibleBitmap(dcObj, width, height)
+	dataBitMap.CreateCompatibleBitmap(dcObj, windowWidth, windowHeight)
 	cDC.SelectObject(dataBitMap)
-	cDC.BitBlt((0,0),(width, height) , dcObj, (5,30), win32con.SRCCOPY)
+	cDC.BitBlt((0,0),(windowWidth, windowHeight) , dcObj, (5,30), win32con.SRCCOPY)
 
 	signedIntsArray = dataBitMap.GetBitmapBits(True)
 	img = np.frombuffer(signedIntsArray, dtype='uint8')
-	img.shape = (height, width, 4)
+	img.shape = (windowHeight, windowWidth, 4)
 
 	# Free Resources
 	dcObj.DeleteDC()
@@ -82,11 +84,9 @@ win32gui.MoveWindow(hwnd, windowX, windowY, windowWidth, windowHeight, True)
 
 dc = win32gui.GetDC(0)
 dcObj = win32ui.CreateDCFromHandle(dc)
-monitor = (0, 0, GetSystemMetrics(0), GetSystemMetrics(1))
 
 # load the COCO class labels our YOLO model was trained on
-labelsPath = "coco.names"
-LABELS = open(labelsPath).read().strip().split("\n")
+LABELS = open("coco.names").read().strip().split("\n")
 # initialize a list of colors to represent each possible class label
 np.random.seed(42)
 COLORS = np.random.randint(0, 255, size=(len(LABELS), 3), dtype="uint8")
@@ -105,12 +105,6 @@ keys = keys.Keys({})
 while True:
 	orig_img = get_screenshot(hwnd)
 	image_np = cv2.cvtColor(orig_img, cv2.COLOR_RGBA2RGB)
-
-	#rect = win32gui.GetWindowRect(hwnd)
-	#windowX = rect[0]
-	#windowY = rect[1]
-	#windowWidth = rect[2] - x
-	#windowHeight = rect[3] - y
 
 	print(round(1/(time.time() - last_time)))
 	last_time = time.time()
@@ -182,9 +176,9 @@ while True:
 			cv2.putText(image_np, text, (boxX, boxY - 5),
 				cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-			if(LABELS[classIDs[i]]=="person"):
-				dcObj.DrawFocusRect((windowX + boxX, windowY + boxY, boxX + width, boxY + height))
+			dcObj.DrawFocusRect((windowX + boxX, windowY + boxY, windowX + boxX + width, windowY + boxY + height))
 
+			if(LABELS[classIDs[i]]=="person"):
 				apx_distance = (0.5*windowWidth-centerX)**2 + (0.5*windowHeight-centerY)**2
 				vehicle_dict[apx_distance] = [centerX, centerY]
 
