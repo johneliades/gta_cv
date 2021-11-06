@@ -14,8 +14,8 @@ import keys
 
 windowX = 0
 windowY = 0
-windowWidth = 800
-windowHeight = 600
+windowWidth = 900
+windowHeight = 800
 
 keyList = ["\b"]
 for char in "ABCDEFGHIJKLMNOPQRSTUVWXYZ 123456789,.'APS$/\\":
@@ -92,12 +92,12 @@ np.random.seed(42)
 COLORS = np.random.randint(0, 255, size=(len(LABELS), 3), dtype="uint8")
 
 # load our YOLO object detector trained on COCO dataset (80 classes)
-net = cv2.dnn.readNetFromDarknet("yolov4.cfg", "yolov4.weights")
+net = cv2.dnn.readNetFromDarknet("yolov4-tiny.cfg", "yolov4-tiny.weights")
 net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
 net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
 
 ln = net.getLayerNames()
-ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
+ln = [ln[i - 1] for i in net.getUnconnectedOutLayers()]
 
 last_time = time.time()
 keys = keys.Keys({})
@@ -112,7 +112,7 @@ while True:
 	# construct a blob from the input frame and then perform a forward
 	# pass of the YOLO object detector, giving us our bounding boxes
 	# and associated probabilities
-	blob = cv2.dnn.blobFromImage(image_np, 1 / 255.0, (416, 416),
+	blob = cv2.dnn.blobFromImage(image_np, 1/255, (603, 603),
 		swapRB=True, crop=False)
 	net.setInput(blob)
 	layerOutputs = net.forward(ln)
@@ -154,7 +154,9 @@ while True:
 	# bounding boxes
 	idxs = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.3)
 
-	vehicle_dict = {}
+	people = {}
+
+	keys.directMouse(buttons=keys.mouse_lb_release)
 
 	# ensure at least one detection exists
 	if len(idxs) > 0:
@@ -176,28 +178,34 @@ while True:
 			cv2.putText(image_np, text, (boxX, boxY - 5),
 				cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-			dcObj.DrawFocusRect((windowX + boxX, windowY + boxY, windowX + boxX + width, windowY + boxY + height))
-
 			if(LABELS[classIDs[i]]=="person"):
+				#dcObj.DrawFocusRect((windowX + boxX, windowY + boxY, windowX + boxX + width, windowY + boxY + height))
 				apx_distance = (0.5*windowWidth-centerX)**2 + (0.5*windowHeight-centerY)**2
-				vehicle_dict[apx_distance] = [centerX, centerY]
 
-		if len(vehicle_dict) > 0:
-			closest = sorted(vehicle_dict.keys())[0]
-			chosen_human = vehicle_dict[closest]
+				center = (centerX, centerY)
+				box = (boxX, boxY)
+				dim = (width, height)
+				people[apx_distance] = [center, box, dim]
 
-			x_move = 0.5*windowWidth-chosen_human[0]
-			y_move = 0.5*windowHeight-chosen_human[1]
+		if len(people) > 0:
+			closest = sorted(people.keys())[0]
+			center, box, dim = people[closest]
+
+			x_move = 0.5*windowWidth-center[0]
+			y_move = 0.5*windowHeight-center[1]
 
 			if 'X' in keys_to_output():
 				keys.keys_worker.SendInput(keys.keys_worker.Mouse(0x0001, -1*int(x_move), -1*int(y_move)))
-	#			keys.directMouse(buttons=keys.mouse_lb_press)
-	#		else:
-	#			keys.directMouse(buttons=keys.mouse_lb_release)
-	#	else:
-	#		keys.directMouse(buttons=keys.mouse_lb_release)
 
-	cv2.imshow('window',image_np)
+				x1 = box[0]
+				x2 = box[0] + dim[0]
+				y1 = box[1]
+				y2 = box[1] + dim[1]
+
+				#if(x1 < 0.5*windowWidth < x2 and y1 < 0.5*windowHeight < y2):
+				keys.directMouse(buttons=keys.mouse_lb_press)
+
+	cv2.imshow('window', image_np)
 	if cv2.waitKey(1) & 0Xff == ord('q'):
 		cv2.destroyAllWindows()
 		break
