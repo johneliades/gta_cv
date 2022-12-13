@@ -1,11 +1,11 @@
-# gta_cv
+# object_detection
 
-A list of projects based on openCV used on GTA V, but easily applied with minor 
-modification to any similarly realistic enough game.
+An object detection python script using [Tensorflow API](https://github.com/tensorflow/models/tree/master/research/object_detection)
+currently used as a GTA V aimbot.
 
-Lane Detection            |  Object Detection
-:-------------------------:|:-------------------------:
-![](https://github.com/johneliades/gta_cv/blob/main/lane_detection/preview.gif)  |  ![](https://github.com/johneliades/gta_cv/blob/main/object_detection/preview.gif)
+<p align="center">
+  <img src="https://github.com/johneliades/gta_cv/blob/main/object_detection/preview.gif" alt="animated" />
+</p>
 
 ## Clone
 
@@ -18,13 +18,6 @@ Or by clicking on the green "Clone or download" button on top and then decompres
 ## Run
 
 Switch GTA V to windowed mode and then open a terminal in the cloned folder and enter:
-
-```
-cd lane_detection
-python3 main.py
-```
-
-OR
 
 ```
 cd object_detection
