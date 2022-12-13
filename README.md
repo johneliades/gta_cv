@@ -20,7 +20,6 @@ Or by clicking on the green "Clone or download" button on top and then decompres
 Switch GTA V to windowed mode and then open a terminal in the cloned folder and enter:
 
 ```
-cd object_detection
 python3 main.py
 ```
 
