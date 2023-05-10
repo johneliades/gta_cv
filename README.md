@@ -4,7 +4,7 @@ An object detection python script using [Tensorflow API](https://github.com/tens
 currently used as a GTA V aimbot.
 
 <p align="center">
-  <img src="https://github.com/johneliades/gta_cv/blob/main/object_detection/preview.gif" alt="animated" />
+  <img src="https://github.com/johneliades/gta_cv/blob/main/preview.gif" alt="animated" />
 </p>
 
 ## Clone
