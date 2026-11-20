@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Model weights (large binaries, download separately — see README)
+models/*.weights
+
+# Local run logs
+log.txt

@@ -1,0 +1,8 @@
+numpy>=1.21.0
+pywin32>=300
+
+# CPU-only OpenCV for now. OpenCV 5 removed the Darknet importer needed for
+# YOLOv4 .cfg/.weights, so stay on 4.x.
+# For the custom CUDA build use requirements-gpu.txt instead: this pip wheel
+# uses the same site-packages/cv2 folder and would overwrite the GPU build.
+opencv-python>=4.5.0,<5

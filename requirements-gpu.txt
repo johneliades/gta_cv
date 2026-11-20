@@ -1,0 +1,7 @@
+numpy>=1.21.0
+pywin32>=300
+
+# GPU setup: OpenCV is intentionally NOT listed here.
+# Use your custom CUDA-enabled OpenCV 4.x build (WITH_CUDA, WITH_CUDNN,
+# OPENCV_DNN_CUDA). The pip "opencv-python" wheel is CPU-only and installs into
+# the same site-packages/cv2 folder, so installing it would overwrite the GPU build.
