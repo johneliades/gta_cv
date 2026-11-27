@@ -10,7 +10,6 @@ import numpy as np
 
 import config
 
-SELF_COLOR = (128, 128, 128)
 SELECT_COLOR = (255, 255, 0)  # cyan: highlighted person in selection mode
 OUTLINE = (0, 0, 0, 255)
 FONT = cv2.FONT_HERSHEY_SIMPLEX
@@ -93,16 +92,17 @@ def draw_selection(img, det, cancel_highlighted):
 	_text(img, hint, (10, frame_h - 15), 0.6, SELECT_COLOR, 2)
 
 
-def draw_target_marker(img, head):
-	"""The target's head area (auto-fire zone) and a red dot on its centre (aim point)."""
-	left, top, right, bottom = head
+def draw_target_marker(img, zone):
+	"""The target's aim area (head or body centre: the auto-fire zone) and a
+	red dot on its centre (aim point)."""
+	left, top, right, bottom = zone
 	_rect(img, (left, top), (right, bottom), (0, 0, 255), 1)
 	centre = ((left + right) // 2, (top + bottom) // 2)
 	cv2.circle(img, centre, 4, OUTLINE, -1, cv2.LINE_AA)
 	cv2.circle(img, centre, 3, _bgra((0, 0, 255)), -1, cv2.LINE_AA)
 
 
-def draw_status(img, fps, detection_count, target_count, aim_active, self_status=None):
+def draw_status(img, fps, detection_count, target_count, aim_active, aim_point, self_status=None):
 	frame_h, frame_w = img.shape[:2]
 
 	# Crosshair
@@ -121,7 +121,8 @@ def draw_status(img, fps, detection_count, target_count, aim_active, self_status
 		_text(img, self_status, (10, 85), 0.55, (200, 200, 200), 1)
 
 	status_color = (0, 255, 0) if aim_active else (0, 0, 255)
-	status_text = "AIM: ON" if aim_active else "AIM: OFF"
+	status_text = "AIM: {} | {}".format("ON" if aim_active else "OFF",
+		"CENTRE" if aim_point == "centre" else "HEAD")
 	# Top-right corner, the same gap from the top and the right edge
 	margin = 10
 	right, top = _ink_offsets(status_text, 0.7, 2)

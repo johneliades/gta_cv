@@ -7,10 +7,11 @@
 
 import ctypes
 import os
+import shutil
 import subprocess
 import sys
 import time
-import traceback
+import winreg
 
 import aimbot  # registers CUDA DLL folder before cv2 is imported
 import cv2
@@ -31,32 +32,54 @@ def self_status_text(self_id):
 	if self_id.selecting:
 		return "Self: selecting..."
 	how = "picked by hand" if self_id.pinned else "auto"
-	profile = "colour profile saved" if self_id.profile is not None else "no colour profile"
-	return "Self: {}, {} ({} to pick yourself)".format(how, profile, config.SELF_SELECT_NEXT_KEY)
+	count = len(self_id.profiles)
+	profile = "{} colour profile{}".format(count, "" if count == 1 else "s") if count else "no colour profile"
+	return "Self: {}, {} ({} pick yourself | {} clear profiles)".format(
+		how, profile, config.SELF_SELECT_NEXT_KEY, config.SELF_PROFILES_CLEAR_KEY)
 
 
-ELEVATED_FLAG = "--elevated"  # marks the copy restarted as administrator
+def _inline_sudo():
+	"""Path of Windows 11's sudo if it is turned on and runs commands in the
+	same window (Settings > System > For developers > Enable sudo, "Inline"),
+	else None."""
+	sudo = shutil.which("sudo")
+	if sudo is None:
+		return None
+	try:
+		with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+				r"SOFTWARE\Microsoft\Windows\CurrentVersion\Sudo") as key:
+			mode, _ = winreg.QueryValueEx(key, "Enabled")
+	except OSError:  # never turned on
+		return None
+	# 1: in a new window, 2: same window without keyboard input, 3: inline
+	return sudo if mode in (2, 3) else None
 
 
 def relaunch_as_admin():
-	"""Restart this script as administrator (Windows asks for permission).
+	"""Restart this script as administrator in this same window, with Windows
+	11's sudo (Windows asks for permission).
 
 	Games that run as administrator (e.g. GTA IV) hide their key presses from
 	programs that don't, so the aim, quit and selection keys would not work.
-	Returns True if an elevated copy was started and this one should exit."""
-	if not config.RUN_AS_ADMIN or ctypes.windll.shell32.IsUserAnAdmin() or ELEVATED_FLAG in sys.argv:
+	Without inline sudo it carries on as it is, with a warning.
+	Returns True if the administrator copy ran and this one should exit."""
+	if not config.RUN_AS_ADMIN or ctypes.windll.shell32.IsUserAnAdmin():
 		return False
-	script = os.path.abspath(sys.argv[0])
-	params = subprocess.list2cmdline([script] + sys.argv[1:] + [ELEVATED_FLAG])
-	shell_execute = ctypes.windll.shell32.ShellExecuteW
-	shell_execute.restype = ctypes.c_void_p
-	result = shell_execute(None, "runas", sys.executable, params, os.path.dirname(script), 1)
-	if (result or 0) <= 32:  # declined, or failed
+	sudo = _inline_sudo()
+	if sudo is None:
 		print("[WARN] Not running as administrator: keys pressed in games that run as "
-			"administrator (e.g. GTA IV) can't be read.")
+			"administrator (e.g. GTA IV) can't be read. Run from an administrator terminal, "
+			"or turn on sudo (Settings > System > For developers > Enable sudo, Inline).")
 		return False
-	print("[INFO] Restarted as administrator in a new window.")
-	return True
+	print("[INFO] Restarting as administrator in this window (sudo)...")
+	script = os.path.abspath(sys.argv[0])
+	child = subprocess.Popen([sudo, sys.executable, script] + sys.argv[1:], cwd=os.path.dirname(script))
+	while True:
+		try:
+			child.wait()  # the administrator copy runs here, in this window
+			return True
+		except KeyboardInterrupt:  # Ctrl+C reaches it too; let it shut down cleanly
+			continue
 
 
 def main():
@@ -96,6 +119,7 @@ def main():
 	self_id = SelfIdentifier()
 	target_lock = targeting.TargetLock()
 	keys = KeyPresses()
+	aim_point = config.AIM_POINT  # "head" / "centre", switched with AIM_POINT_TOGGLE_KEY
 
 	last_time = time.time()
 	fps_smooth = 0.0
@@ -135,8 +159,15 @@ def main():
 			own, self_scores = self_id.update(image, people)
 			score_of = {id(d): s for d, s in zip(people, self_scores)}
 
+			if keys.pressed(config.AIM_POINT_TOGGLE_KEY):
+				aim_point = "head" if aim_point == "centre" else "centre"
+				print("[INFO] Aiming at the {}.".format(
+					"centre of the body" if aim_point == "centre" else "head"))
+
 			# Picking yourself by hand (see SELF_SELECT_* in config.py)
 			if config.SELF_EXCLUSION_ENABLED:
+				if keys.pressed(config.SELF_PROFILES_CLEAR_KEY):
+					self_id.clear_profiles()
 				if keys.pressed(config.SELF_SELECT_NEXT_KEY):
 					self_id.select_next()
 				if keys.pressed(config.SELF_SELECT_CONFIRM_KEY):
@@ -144,12 +175,11 @@ def main():
 			enemies = [d for d in people if d is not own]
 
 			for det in detections:
-				is_person = det.label == config.TARGET_CLASS
 				if det is own:
-					color, label = hud.SELF_COLOR, "self (ignored)"
-				else:
-					color = detector.color_for(det)
-					label = "{}: {:.2f}".format(det.label, det.confidence)
+					continue  # your own character: not drawn
+				is_person = det.label == config.TARGET_CLASS
+				color = detector.color_for(det)
+				label = "{}: {:.2f}".format(det.label, det.confidence)
 				hud.draw_detection(canvas, det, color, label,
 					show_geometry=config.SHOW_SELF_DEBUG and is_person,
 					score=score_of.get(id(det)))
@@ -161,27 +191,27 @@ def main():
 			should_fire = False
 
 			heads = [d for d in detections if d.label == config.HEAD_CLASS]
-			picked = target_lock.pick(enemies, heads, frame_w, frame_h, self_id, aim_active)
+			picked = target_lock.pick(enemies, heads, frame_w, frame_h, self_id, aim_active, aim_point)
 			if picked is not None:
-				_, head = picked
-				aim_x, aim_y = targeting.box_centre(head)
-				hud.draw_target_marker(canvas, head)
+				_, zone = picked  # head or body centre, see aim_point
+				aim_x, aim_y = targeting.box_centre(zone)
+				hud.draw_target_marker(canvas, zone)
 
 				if aim_active:
-					# Move towards the target's head, damped for less jerky movement
+					# Move towards the aim point, damped for less jerky movement
 					dx = int((aim_x - 0.5 * frame_w) * config.AIM_SMOOTHING)
 					dy = int((aim_y - 0.5 * frame_h) * config.AIM_SMOOTHING)
 					mouse.move(dx, dy)
 
 					if config.AUTO_FIRE:
-						# Only on the head, not while still crossing the body
-						should_fire = targeting.crosshair_inside(head, frame_w, frame_h)
+						# Only on the aim area, not while still crossing the rest
+						should_fire = targeting.crosshair_inside(zone, frame_w, frame_h)
 
 			# Press/release only on state change; releases when target lost or key let go
 			mouse.set_firing(should_fire)
 
 			hud.draw_status(canvas, fps_smooth, len(detections), len(enemies), aim_active,
-				self_status_text(self_id))
+				aim_point, self_status_text(self_id))
 
 			# Exactly over the client area the frame came from
 			try:
@@ -201,13 +231,4 @@ def main():
 
 
 if __name__ == "__main__":
-	try:
-		main()
-	except Exception:
-		traceback.print_exc()
-		if ELEVATED_FLAG not in sys.argv:
-			sys.exit(1)
-	finally:
-		# The administrator copy has its own window, which would close at once
-		if ELEVATED_FLAG in sys.argv:
-			input("\nPress Enter to close this window.")
+	main()

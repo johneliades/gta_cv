@@ -56,17 +56,32 @@ def head_box(person, heads):
 	return int(cx - half), int(cy - half), int(cx + half), int(cy + half)
 
 
+def body_box(person):
+	"""(left, top, right, bottom) of a square at the centre of the person's
+	box: the aim point and auto-fire zone in "centre" mode. BODY_SIZE_FRACTION
+	of the box height, no wider than the box."""
+	half = max(HEAD_MIN_SIZE, min(person.h * config.BODY_SIZE_FRACTION, person.w)) / 2.0
+	cx, cy = person.x + person.w / 2.0, person.y + person.h / 2.0
+	return int(cx - half), int(cy - half), int(cx + half), int(cy + half)
+
+
+def aim_box(person, heads, aim_point):
+	"""The area to aim at (its centre) and auto-fire in: the head
+	(aim_point "head") or the centre of the body ("centre")."""
+	return body_box(person) if aim_point == "centre" else head_box(person, heads)
+
+
 def box_centre(box):
 	left, top, right, bottom = box
 	return (left + right) // 2, (top + bottom) // 2
 
 
-def pick_target(people, heads, frame_w, frame_h):
-	"""(person, head box) for the person whose head is nearest the crosshair,
-	or None if there are no people."""
+def pick_target(people, heads, frame_w, frame_h, aim_point):
+	"""(person, aim box) for the person whose aim point (head or body centre,
+	see aim_box) is nearest the crosshair, or None if there are no people."""
 	if not people:
 		return None
-	targets = [(person, head_box(person, heads)) for person in people]
+	targets = [(person, aim_box(person, heads, aim_point)) for person in people]
 
 	def distance(target):
 		x, y = box_centre(target[1])
@@ -85,8 +100,8 @@ class TargetLock:
 	def __init__(self):
 		self._track = None
 
-	def pick(self, enemies, heads, frame_w, frame_h, tracker, aim_active):
-		"""(person, head box) to aim at, or None (nobody, or waiting for the
+	def pick(self, enemies, heads, frame_w, frame_h, tracker, aim_active, aim_point):
+		"""(person, aim box) to aim at, or None (nobody, or waiting for the
 		locked person to reappear). `tracker` is the SelfIdentifier, which
 		follows every person box across frames."""
 		if not aim_active:
@@ -94,12 +109,12 @@ class TargetLock:
 		elif self._track is not None and tracker.is_tracked(self._track):
 			for det in enemies:
 				if tracker.track_of(det) is self._track:
-					return det, head_box(det, heads)
+					return det, aim_box(det, heads, aim_point)
 			if not tracker.on_screen(self._track):
 				return None  # not detected this frame: wait for them
 			# on screen but no longer an enemy (now counted as self): re-pick
 
-		picked = pick_target(enemies, heads, frame_w, frame_h)
+		picked = pick_target(enemies, heads, frame_w, frame_h, aim_point)
 		self._track = tracker.track_of(picked[0]) if picked and aim_active else None
 		return picked
 

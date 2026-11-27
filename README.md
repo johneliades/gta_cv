@@ -14,7 +14,7 @@ Real-time object detection for GTA V using **YOLOv4-tiny** with OpenCV's DNN mod
 - **In-game HUD overlay** — Boxes, FPS counter, detection count, crosshair and aim status drawn directly over the game (click-through, excluded from the screen capture; no separate preview window)
 - **Auto-fire** — Fires only while the crosshair is on the target's head area (not while crossing the body)
 - **Configurable** — All settings in `config.py` (thresholds, keys, model, etc.)
-- **Head targeting** — Aims at the head: a detected `head` box inside the person (custom models), else estimated from the person box (COCO)
+- **Body centre or head** — Aims at the centre of the body by default; press **F7** to switch to the head and back. The head is a detected `head` box inside the person (custom models), else estimated from the person box (COCO)
 - **Target priority** — Automatically selects the person whose head is closest to the crosshair, then stays locked on them while the aim key is held (waiting through short detection gaps instead of jumping to someone else)
 - **Never aims at you** — Your own character is found by scoring each person box on three signals: it stays fixed on screen while the camera turns, its colours match your saved profile, and (weakly) where it is on screen. You can also pick yourself by hand
 
@@ -48,13 +48,15 @@ Edit `config.py` to customize behavior:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `USE_CUDA` | `True` | Enable GPU acceleration (set `False` for CPU) |
-| `BLOB_SIZE` | `(416, 416)` | Input resolution (higher = more accurate, slower) |
-| `CONFIDENCE_THRESHOLD` | `0.5` | Minimum detection confidence |
+| `BLOB_SIZE` | `(480, 480)` | Input resolution (higher = more accurate, slower) |
+| `CONFIDENCE_THRESHOLD` | `0.45` | Minimum detection confidence |
 | `NMS_THRESHOLD` | `0.3` | Non-maxima suppression overlap threshold |
 | `AIM_SMOOTHING` | `0.6` | Mouse smoothing (0.0–1.0, lower = smoother) |
 | `AIM_ACTIVATION_KEY` | `X` | Key to hold for aim assist |
-| `AUTO_FIRE` | `True` | Auto-click when the crosshair is on the head area |
-| `TRACK_MAX_MISSES` | `12` | Frames the target lock waits for a lost target to reappear |
+| `AUTO_FIRE` | `True` | Auto-click when the crosshair is on the aim area (head or body centre) |
+| `AIM_POINT` / `AIM_POINT_TOGGLE_KEY` | `centre` / `F7` | Aim at the head or the body centre (`centre`); the key switches in game |
+| `BODY_SIZE_FRACTION` | `0.25` | Body centre: square size as a fraction of the person box height (the auto-fire zone) |
+| `TRACK_MAX_MISSES` | `6` | Frames the target lock waits for a lost target to reappear |
 | `TARGET_CLASS` | `person` | COCO class to target |
 | `HEAD_Y_FRACTION` | `0.08` | Head estimate: fraction of the person box height below its top |
 | `HEAD_SIZE_FRACTION` | `0.14` | Head estimate: square size as a fraction of the person box height (the auto-fire zone) |
@@ -62,7 +64,9 @@ Edit `config.py` to customize behavior:
 | `SELF_WEIGHT_MOTION` / `_APPEARANCE` / `_POSITION` | `0.45` / `0.40` / `0.15` | Weights of the three self signals |
 | `SELF_SCORE_THRESHOLD` | `0.5` | Minimum score for the best box to count as self |
 | `SELF_SELECT_NEXT_KEY` / `_CONFIRM_KEY` | `F8` / `ENTER` | Pick yourself by hand |
-| `SELF_PROFILE_FILE` | `self_profile.npy` | Where your colour profile is kept between runs |
+| `SELF_PROFILE_SLOTS` | `6` | How many colour profiles (lighting conditions) of you are kept |
+| `SELF_PROFILES_CLEAR_KEY` | `F9` | Forget all colour profiles (e.g. after switching character) |
+| `SELF_PROFILE_FILE` | `self_profile.npy` | Where your colour profiles are kept between runs |
 | `RUN_AS_ADMIN` | `True` | Restart as administrator at launch (needed for games that run as administrator, e.g. GTA IV) |
 | `QUIT_KEY` | `F10` | Key to hold to quit |
 
@@ -73,7 +77,7 @@ Edit `config.py` to customize behavior:
    ```bash
    python main.py
    ```
-   Windows asks for administrator permission, and the script continues in a new window. Games that run as administrator (e.g. GTA IV) hide key presses from other programs, so without it no key works in them. Turn off with `RUN_AS_ADMIN = False`
+   With Windows 11 `sudo` turned on in inline mode (Settings > System > For developers > Enable sudo), Windows asks for administrator permission and the script continues as administrator in the same window. Without it, run the script from an administrator terminal. Games that run as administrator (e.g. GTA IV) hide key presses from other programs, so without it no key works in them. Turn off with `RUN_AS_ADMIN = False`
 3. Switch to the game window: the script follows whichever window is active (never the terminal it was started from)
 4. Hold **X** to activate aim assist
 5. Hold **F10** (or press Ctrl+C in the terminal) to quit
@@ -83,20 +87,22 @@ Edit `config.py` to customize behavior:
 Each person box gets a self score (shown under it as `m= a= p= = total` while `SHOW_SELF_DEBUG` is on):
 
 - **motion (m)** — In third person the camera follows you, so when you turn, the background slides across the screen while your character stays put. Boxes are followed from frame to frame, and one that stays fixed while the background moves scores high. The score is remembered while the camera is still.
-- **appearance (a)** — How well the box's colours match your saved colour profile. The profile is learned on its own while the motion signal is sure, or saved when you pick yourself.
+- **appearance (a)** — How well the box's colours match your saved colour profiles (the best match counts). Brightness is evened out first, so a darker or brighter scene alone doesn't break the match. Each time you pick yourself, a profile for the current lighting is added (up to `SELF_PROFILE_SLOTS`, 6), so after picking yourself in a few different lighting conditions you rarely need to again. The first profile is also learned on its own while the motion signal is sure.
 - **position (p)** — Whether the box lies in the usual self areas, bottom-left for third person or bottom-middle for first person (a weak hint; `SELF_THIRD_PERSON_*` / `SELF_FIRST_PERSON_*`).
 
 Only the best box above `SELF_SCORE_THRESHOLD` is self. Until there is any evidence, the self areas decide on their own.
 
-To pick yourself by hand: press **F8** to start, press it again until your character is highlighted, then press **Enter**. After the last person the highlight moves to a **Cancel** placeholder: press Enter on it to leave without picking. That box is treated as self while it stays tracked, and its colours become your profile. Aiming pauses while selecting. Do this again after changing outfit or character.
+To pick yourself by hand: press **F8** to start, press it again until your character is highlighted, then press **Enter**. After the last person the highlight moves to a **Cancel** placeholder: press Enter on it to leave without picking. That box is treated as self while it stays tracked, and its colours are added to your profiles. Aiming pauses while selecting. After switching to another character (or a very different outfit), press **F9** to forget the old colour profiles, then pick yourself again.
 
 ## Controls
 
 | Key | Action |
 |-----|--------|
 | Hold `X` | Activate aimbot |
+| `F7` | Switch the aim point: head / body centre (shown top right) |
 | `F8` | Start picking yourself / highlight the next person (then Cancel) |
 | `Enter` | Pick the highlighted person as yourself (or leave, on Cancel) |
+| `F9` | Forget your saved colour profiles (after switching character) |
 | Hold `F10` | Quit (`QUIT_KEY` in `config.py`) |
 
 ## Project Structure

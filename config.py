@@ -20,18 +20,27 @@ CLASSES_FILE = os.path.join(MODELS_DIR, "coco.names")
 # Use CUDA acceleration (set to False to use CPU)
 USE_CUDA = True
 
-# Input blob size (must match model training size; multiples of 32)
-BLOB_SIZE = (416, 416)
+# Detector input size: the frame is shrunk to this before detection. Any
+# multiple of 32 works (the model was trained at 416); larger finds smaller,
+# more distant people, but each frame takes longer.
+BLOB_SIZE = (480, 480)
 
 # ─── Detection Settings ───────────────────────────────────────────────────────
-CONFIDENCE_THRESHOLD = 0.5
+CONFIDENCE_THRESHOLD = 0.45
 NMS_THRESHOLD = 0.3
 
 # Target class name to aim at
 TARGET_CLASS = "person"
 
-# Aim point: the target's head.
-# If the model has this class (a custom-trained model), a detected head inside
+# Aim point: "head" or "centre" (the middle of the person's box). Switch
+# between them in game with AIM_POINT_TOGGLE_KEY; this is the one at start.
+AIM_POINT = "centre"
+AIM_POINT_TOGGLE_KEY = "F7"
+# Centre: a square this fraction of the box height (no wider than the box) at
+# the middle of the box. Auto-fire only triggers while the crosshair is inside.
+BODY_SIZE_FRACTION = 0.25
+
+# Head: if the model has this class (a custom-trained model), a detected head inside
 # the upper half of a person box is used. COCO models have none, so the head
 # is estimated from the person box instead:
 HEAD_CLASS = "head"
@@ -52,20 +61,21 @@ AIM_ACTIVATION_KEY = "X"
 # Lower values give smoother but slower tracking
 AIM_SMOOTHING = 0.6
 
-# Auto-fire while the crosshair is on the target's head area (see HEAD_SIZE_FRACTION)
+# Auto-fire while the crosshair is on the target's aim area: the head
+# (HEAD_SIZE_FRACTION) or the body centre (BODY_SIZE_FRACTION), see AIM_POINT
 AUTO_FIRE = True
 
 # Target lock: while the aim key is held, the person closest to the crosshair
 # when aiming started stays the target. Detection can miss a person for a few
 # frames; the lock waits (no aiming or firing) up to this many frames in a row
 # for them to reappear before moving on to the next closest person.
-TRACK_MAX_MISSES = 12
+TRACK_MAX_MISSES = 6
 
 # ─── Self-Exclusion ──────────────────────────────────────────────────────────
 # Your own character is also detected as a "person" and must never be aimed at.
 # Each person box gets a self score from three signals (see aimbot/self_id.py):
 #   motion      stays fixed on screen while the camera turns (background moves)
-#   appearance  colours match the saved profile of your character
+#   appearance  colours match a saved profile of your character
 #   position    lies in the self areas below (a weak hint)
 # Only the highest-scoring box counts as self, and only at or above
 # SELF_SCORE_THRESHOLD. A signal with no evidence yet counts as 0.5.
@@ -85,7 +95,7 @@ SELF_STICKY_BONUS = 0.05   # added to last frame's self box, against flicker
 # then a Cancel placeholder, then round again. The confirm key picks the
 # highlighted person (or leaves without a pick on Cancel).
 # The pick is self for as long as it stays tracked, and its colours become the
-# saved profile. Aiming pauses while selecting.
+# colours are saved as a profile. Aiming pauses while selecting.
 SELF_SELECT_NEXT_KEY = "F8"
 SELF_SELECT_CONFIRM_KEY = "ENTER"
 
@@ -102,7 +112,15 @@ SELF_TRACK_MIN_IOU = 0.3           # overlap needed to follow a box to the next 
 # mapped so NO_MATCH and below scores 0 and MATCH and above scores 1.
 SELF_APPEARANCE_NO_MATCH = 0.35
 SELF_APPEARANCE_MATCH = 0.75
-# The profile is kept between runs in this file (None: never saved)
+# One profile per lighting: picking yourself adds one for the current lighting
+# (replacing a saved one that is at least SELF_PROFILE_SAME similar), up to
+# SELF_PROFILE_SLOTS (the oldest goes). The best-matching profile counts.
+SELF_PROFILE_SLOTS = 6
+SELF_PROFILE_SAME = 0.8
+# Forget all profiles (e.g. after switching to another character), then pick
+# yourself again
+SELF_PROFILES_CLEAR_KEY = "F9"
+# The profiles are kept between runs in this file (None: never saved)
 SELF_PROFILE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "self_profile.npy")
 # Learn/refresh the profile on its own from the self box while the camera
 # turns and the motion signal alone is at least this sure (follows outfit and
@@ -134,10 +152,12 @@ SHOW_SELF_DEBUG = True
 SHOW_FPS = True
 SHOW_DETECTION_COUNT = True
 
-# Restart as administrator at launch (Windows asks for permission). Needed for
-# games that run as administrator, e.g. GTA IV: Windows hides their key
-# presses from normal programs, so no key (aim, quit, selection) would work.
-# The administrator copy runs in its own window.
+# Restart as administrator at launch, in the same window (Windows asks for
+# permission). Needed for games that run as administrator, e.g. GTA IV:
+# Windows hides their key presses from normal programs, so no key (aim, quit,
+# selection) would work. Uses Windows 11 sudo, which must be turned on in
+# inline mode (Settings > System > For developers > Enable sudo); without it,
+# start the script from an administrator terminal instead.
 RUN_AS_ADMIN = True
 
 # The HUD is drawn directly over the game (a click-through overlay window),
