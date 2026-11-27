@@ -1,5 +1,8 @@
 numpy>=1.21.0
 pywin32>=300
+# Screen capture (DXGI Desktop Duplication). Required; needs Python 3.10+.
+# Pulls in no OpenCV.
+dxcam>=0.3,<0.4
 
 # GPU setup: OpenCV is intentionally NOT listed here.
 # Use your custom CUDA-enabled OpenCV 4.x build (WITH_CUDA, WITH_CUDNN,

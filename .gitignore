@@ -133,3 +133,6 @@ models/*.weights
 
 # Local run logs
 log.txt
+
+# Saved colour profile of your character (see SELF_PROFILE_FILE in config.py)
+self_profile.npy

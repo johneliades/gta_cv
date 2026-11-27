@@ -19,10 +19,6 @@ class Detection:
 	cx: int  # centre, pixels
 	cy: int
 
-	@property
-	def area(self):
-		return self.w * self.h
-
 
 def cuda_available():
 	"""True only if this OpenCV build has CUDA support and a CUDA device is present.

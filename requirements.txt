@@ -1,5 +1,8 @@
 numpy>=1.21.0
 pywin32>=300
+# Screen capture (DXGI Desktop Duplication). Required; needs Python 3.10+.
+# Pulls in no OpenCV.
+dxcam>=0.3,<0.4
 
 # CPU-only OpenCV for now. OpenCV 5 removed the Darknet importer needed for
 # YOLOv4 .cfg/.weights, so stay on 4.x.
